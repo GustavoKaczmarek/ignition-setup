@@ -1,0 +1,149 @@
+# =============================================================================
+# Ignition Development Environment
+# =============================================================================
+# This docker-compose file sets up a complete Ignition development stack.
+# Config data is stored in the repository for portability across machines
+# (Mac, WSL, cloud environments).
+#
+# Usage:
+#   docker compose up -d      # Start all services
+#   docker compose down       # Stop all services
+#   docker compose logs -f    # View logs
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Ignition Gateway
+  # ---------------------------------------------------------------------------
+  # Access the web interface at http://localhost:8088
+  # Designer launcher available from the web interface
+  #
+  # Additional modules must be installed manually via:
+  #   1. Gateway web UI: Config > Modules > Install or Upgrade a Module
+  #   2. Or restore a gateway backup that includes the modules
+  #
+  # Common modules to consider:
+  #   - Perspective (modern web visualization)
+  #   - Vision (classic Java client)
+  #   - SQL Bridge (database transaction groups)
+  #   - Tag Historian
+  #   - Alarm Notification
+  #   - MQTT Engine / Transmission (Cirrus Link)
+  # ---------------------------------------------------------------------------
+  ignition:
+    image: inductiveautomation/ignition:latest
+    container_name: ignition-gateway
+    ports:
+      - "8088:8088"  # Web UI / Designer
+      - "8060:8060"  # Gateway Network (for multi-gateway architectures)
+    environment:
+      ACCEPT_IGNITION_EULA: "Y"
+      GATEWAY_ADMIN_USERNAME: admin
+      GATEWAY_ADMIN_PASSWORD: password
+      IGNITION_EDITION: standard
+      TZ: Asia/Singapore
+    volumes:
+      # Gateway data persisted to repo for cross-machine development
+      - ./ignition/data:/usr/local/bin/ignition/data
+    depends_on:
+      - postgres
+      - mssql
+      - mosquitto
+    networks:
+      - ignition-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  # Connection string: jdbc:postgresql://postgres:5432/ignition
+  # Internal hostname: postgres (within docker network)
+  # External access: localhost:5432
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: ignition-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ignition
+      POSTGRES_PASSWORD: ignition
+      POSTGRES_DB: ignition
+      TZ: Asia/Singapore
+    volumes:
+      # Database data stored locally (not in repo) - each machine has its own data
+      - postgres-data:/var/lib/postgresql/data
+      # Init scripts run on first startup only
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - ignition-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Microsoft SQL Server
+  # ---------------------------------------------------------------------------
+  # Connection string: jdbc:sqlserver://mssql:1433;databaseName=ignition
+  # Internal hostname: mssql (within docker network)
+  # External access: localhost:1433
+  #
+  # Note: MSSQL init scripts must be run manually after container starts
+  # ---------------------------------------------------------------------------
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ignition-mssql
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Ignition123!"  # Must meet complexity requirements
+      MSSQL_PID: Developer
+      TZ: Asia/Singapore
+    volumes:
+      # Database data stored locally (not in repo) - each machine has its own data
+      - mssql-data:/var/opt/mssql
+      # Init scripts (run manually)
+      - ./mssql/init:/scripts
+    networks:
+      - ignition-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Mosquitto MQTT Broker
+  # ---------------------------------------------------------------------------
+  # MQTT: localhost:1883 (or mosquitto:1883 from within docker)
+  # WebSocket: localhost:9001
+  #
+  # Use with Ignition MQTT modules (Cirrus Link) or built-in MQTT features
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: ignition-mosquitto
+    ports:
+      - "1883:1883"  # MQTT protocol
+      - "9001:9001"  # MQTT over WebSocket
+    volumes:
+      # Config tracked in repo
+      - ./mosquitto/config:/mosquitto/config
+      # Data and logs persisted to repo
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - ignition-network
+    restart: unless-stopped
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  ignition-network:
+    driver: bridge
+    # All services can reach each other by container name:
+    #   - ignition, postgres, mssql, mosquitto
+
+# =============================================================================
+# Volumes (local to each machine, not tracked in repo)
+# =============================================================================
+volumes:
+  postgres-data:
+  mssql-data:

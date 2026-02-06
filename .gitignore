@@ -1,0 +1,48 @@
+# =============================================================================
+# Ignition Development Environment - Git Ignore
+# =============================================================================
+# Config and data directories ARE tracked for cross-machine portability.
+# Only temporary/runtime files are ignored.
+# =============================================================================
+
+# Environment files with secrets (use .env.example for templates)
+.env
+*.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---------------------------------------------------------------------------
+# Ignition
+# ---------------------------------------------------------------------------
+# Ignore logs and temporary files, but keep config/data
+ignition/data/logs/
+ignition/data/.uuid
+ignition/data/.docker-init-complete
+*.log
+
+# ---------------------------------------------------------------------------
+# PostgreSQL
+# ---------------------------------------------------------------------------
+# Ignore lock files and temporary data
+postgres/data/postmaster.pid
+postgres/data/postmaster.opts
+
+# ---------------------------------------------------------------------------
+# MSSQL
+# ---------------------------------------------------------------------------
+# Ignore lock files and logs
+mssql/data/log/
+
+# ---------------------------------------------------------------------------
+# Mosquitto
+# ---------------------------------------------------------------------------
+# Ignore logs but keep config and persistence data
+mosquitto/log/*.log
